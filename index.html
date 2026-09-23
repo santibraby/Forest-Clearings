@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spots">
+<meta name="theme-color" content="#0b0f0c">
+<title>Forest Spots</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bar: 92px; --accent: #f7b733; --panel: rgba(14, 18, 15, .94); --muted: #b5bdb7; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    position: fixed; inset: 0; overflow: hidden; background: #0b0f0c; color: #f0f3ef;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+  }
+  button { font: inherit; touch-action: manipulation; cursor: pointer; }
+  #map { position: absolute; inset: 0; background: #0b0f0c; }
+
+  /* Leaflet chrome, tuned for a dark UI + phone safe areas */
+  .leaflet-top { top: env(safe-area-inset-top, 0px); }
+  .leaflet-bottom { bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px)); }
+  .leaflet-container { font: inherit; }
+  .leaflet-control-attribution { background: rgba(0, 0, 0, .45) !important; color: #ccc !important; font-size: 10px; }
+  .leaflet-control-attribution a { color: #ddd !important; }
+  .leaflet-bar a { background: var(--panel) !important; color: #fff !important; border-bottom-color: rgba(255, 255, 255, .12) !important; }
+  .leaflet-control-layers { background: var(--panel) !important; color: #fff; border: 1px solid rgba(255, 255, 255, .15) !important; }
+  .leaflet-control-layers-toggle { filter: invert(1); }
+  .leaflet-control-layers-expanded { padding: 8px 12px; }
+  .leaflet-popup-content-wrapper { border-radius: 12px; background: #151a16; color: #eef2ee; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+  .leaflet-popup-tip { background: #151a16; }
+  .leaflet-popup-content { margin: 12px 14px; font-size: 14px; line-height: 1.35; }
+  .leaflet-popup-close-button { color: #aaa !important; font-size: 22px !important; padding: 6px 8px 0 0 !important; }
+
+  /* Pins + labels */
+  .pin { background: none; border: 0; }
+  .pin svg { width: 30px; height: 40px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+  .lbl { background: rgba(10, 12, 10, .85); color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; box-shadow: none; white-space: nowrap; }
+  .lbl::before { display: none; }
+  body.nolbl .lbl { display: none; }
+
+  /* Popup form */
+  .pp .row { display: flex; gap: 6px; margin: 6px 0; }
+  .pp input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .2); background: #0b0f0c; color: #fff; font-size: 16px; }
+  .pp button { flex: 1; height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; font-weight: 600; font-size: 13px; }
+  .pp button.pri { flex: none; padding: 0 14px; background: var(--accent); color: #1b1300; border-color: transparent; }
+  .pp button.danger { color: #ff7b7b; }
+  .pp .meta { color: var(--muted); font-size: 12.5px; margin: 4px 0 2px; }
+  .pp .meta b { color: #fff; }
+
+  /* GPS status pill */
+  .pill {
+    position: absolute; left: 10px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 1100;
+    display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 120px);
+    padding: 8px 12px; border-radius: 999px; background: var(--panel); font-size: 14px; font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+  }
+  .pill::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: #888; }
+  .pill.good::before { background: #3ddc84; }
+  .pill.ok::before { background: #f7b733; }
+  .pill.bad::before { background: #ff5a5a; }
+  .pill.wait::before { background: #9aa; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  /* Bottom bar */
+  .bar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 1100; display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); pointer-events: none;
+  }
+  .bar > * { pointer-events: auto; }
+  #tag {
+    flex: 1; height: 64px; border: 0; border-radius: 18px; background: var(--accent); color: #1b1300;
+    font-size: 20px; font-weight: 800; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  }
+  #tag:active { transform: scale(.98); }
+  #tag:disabled { opacity: .75; }
+  .rnd {
+    position: relative; flex: none; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid rgba(255, 255, 255, .18); background: var(--panel); color: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+  }
+  .rnd svg { width: 26px; height: 26px; }
+  .rnd.on { color: #4c9fff; border-color: #4c9fff; }
+  .badge {
+    position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+    display: grid; place-items: center; background: var(--accent); color: #1b1300; font-size: 12px; font-weight: 800;
+  }
+
+  /* Saved-spots drawer */
+  .drawer {
+    position: absolute; left: 10px; right: 10px; bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px)); z-index: 1100;
+    max-height: 55vh; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--panel); border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  }
+  .drawer[hidden] { display: none; }
+  .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+  .dh button { background: none; border: 0; color: #bbb; font-size: 18px; padding: 4px 8px; }
+  #list { flex: 1; list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #list li { padding: 11px 14px; border-bottom: 1px solid rgba(255, 255, 255, .07); cursor: pointer; }
+  #list li:active { background: rgba(255, 255, 255, .06); }
+  #list .nm { font-weight: 700; font-size: 16px; }
+  #list .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  #list .empty { color: var(--muted); cursor: default; line-height: 1.45; }
+  .df { display: flex; gap: 10px; padding: 10px 12px; border-top: 1px solid rgba(255, 255, 255, .1); }
+  .df button { flex: 1; height: 42px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: #fff; font-weight: 600; }
+
+  /* Toast */
+  .toast {
+    position: absolute; left: 50%; bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px) + 12px); z-index: 1200;
+    transform: translate(-50%, 10px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+    max-width: 90vw; padding: 10px 16px; border-radius: 12px; background: #fff; color: #111; font-weight: 600; font-size: 14px; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div id="status" class="pill wait">Waiting for GPS…</div>
+<div id="toast" class="toast" role="status"></div>
+
+<div id="drawer" class="drawer" hidden>
+  <div class="dh"><span>Saved spots</span><button id="close" aria-label="Close">✕</button></div>
+  <ul id="list"></ul>
+  <div class="df"><button id="share">Share link</button><button id="gpx">Export GPX</button></div>
+</div>
+
+<div class="bar">
+  <button id="spots" class="rnd" aria-label="Saved spots">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    <span id="count" class="badge">0</span>
+  </button>
+  <button id="tag">📍 Tag this spot</button>
+  <button id="locate" class="rnd" aria-label="Center on me">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  </button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const HOME = [43.10, -73.81];                       // between Saratoga Springs and Greenfield Center
+  const LS = 'forestSpots.v1', LS_DEL = 'forestSpots.deleted.v1', LS_LBL = 'forestSpots.labels';
+  const FRESH_MS = 20000;                             // a GPS fix younger than this is used as-is when tagging
+  const TAG_LABEL = '📍 Tag this spot';
+  const FT = 3.28084;
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+  /* ---------- map ---------- */
+  const map = L.map('map', { zoomControl: false }).setView(HOME, 13);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  const tileOpts = () => ({ maxNativeZoom: 19, maxZoom: 21, detectRetina: true });
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    Object.assign({ attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }, tileOpts())).addTo(map);
+  const labels = L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', tileOpts()),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', tileOpts())
+  ]);
+  L.control.layers(null, { 'Roads &amp; labels': labels }, { position: 'topright' }).addTo(map);
+  if (lsGet(LS_LBL) === '1') labels.addTo(map);
+  map.on('overlayadd', () => lsSet(LS_LBL, '1'));
+  map.on('overlayremove', () => lsSet(LS_LBL, '0'));
+
+  map.createPane('me').style.zIndex = 640;            // above pins, below labels/popups
+  const meDot = L.circleMarker(HOME, { pane: 'me', radius: 7, color: '#fff', weight: 2.5, fillColor: '#2f80ff', fillOpacity: 1 });
+  const meAcc = L.circle(HOME, { pane: 'me', radius: 1, color: '#2f80ff', weight: 1, opacity: .6, fillColor: '#2f80ff', fillOpacity: .12, interactive: false });
+
+  const PIN_SVG = '<svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 1C7.3 1 1.5 6.9 1.5 14.4c0 9.6 11.4 22.4 12.6 23.7a1.2 1.2 0 0 0 1.8 0C17.1 36.8 28.5 24 28.5 14.4 28.5 6.9 22.7 1 15 1z" fill="#f7b733" stroke="#3a2a00" stroke-width="1.5"/><circle cx="15" cy="14.5" r="5" fill="#1b1300"/></svg>';
+  const pinIcon = L.divIcon({ className: 'pin', html: PIN_SVG, iconSize: [30, 40], iconAnchor: [15, 38], popupAnchor: [0, -36], tooltipAnchor: [0, 4] });
+
+  /* ---------- state ---------- */
+  let spots = [];              // { t (ms, doubles as id), lat, lng, acc (m), name }
+  let deleted = new Set();     // ids of deleted spots, so a stale shared link can't resurrect them
+  const markers = new Map();   // t -> L.marker
+  let me = null, lastFixAt = 0, follow = false, watchId = null, blocked = false, cur = null;
+
+  function parseHash() {
+    const h = location.hash || '';
+    if (h.indexOf('#s=') !== 0) return [];
+    const out = [];
+    h.slice(3).split(';').forEach(part => {
+      const f = part.split(',');
+      if (f.length < 4) return;
+      const t = Number(f[0]), lat = Number(f[1]), lng = Number(f[2]), acc = Number(f[3]);
+      if (!isFinite(t) || !isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+      let name = f.slice(4).join(',');
+      try { name = decodeURIComponent(name); } catch (e) {}
+      out.push({ t, lat, lng, acc: isFinite(acc) ? acc : 0, name });
+    });
+    return out;
+  }
+  function buildHash() {
+    if (!spots.length) return '';
+    return '#s=' + spots.map(s => [s.t, s.lat.toFixed(6), s.lng.toFixed(6), Math.round(s.acc || 0), encodeURIComponent(s.name || '')].join(',')).join(';');
+  }
+  function loadState() {
+    try { spots = JSON.parse(lsGet(LS) || '[]'); } catch (e) { spots = []; }
+    if (!Array.isArray(spots)) spots = [];
+    spots = spots.filter(s => s && isFinite(s.t) && isFinite(s.lat) && isFinite(s.lng));
+    try { deleted = new Set(JSON.parse(lsGet(LS_DEL) || '[]')); } catch (e) { deleted = new Set(); }
+    let added = 0;
+    parseHash().forEach(s => {                       // spots carried in a shared/bookmarked link
+      if (deleted.has(s.t) || spots.some(x => x.t === s.t)) return;
+      spots.push(s); added++;
+    });
+    spots.sort((a, b) => a.t - b.t);
+    return added;
+  }
+  function saveState() {
+    lsSet(LS, JSON.stringify(spots));
+    lsSet(LS_DEL, JSON.stringify(Array.from(deleted).slice(-500)));
+    try { history.replaceState(null, '', location.pathname + location.search + buildHash()); } catch (e) {}
+    $('count').textContent = spots.length;
+  }
+
+  /* ---------- formatting ---------- */
+  const fmtAcc = m => Math.round((m || 0) * FT) + ' ft';
+  const fmtDist = m => { const ft = m * FT; return ft < 1320 ? Math.round(ft) + ' ft' : (ft / 5280).toFixed(2) + ' mi'; };
+  const fmtTime = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const compass = b => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(b / 45) % 8];
+  function distBearing(a, b) {
+    const R = 6371000, r = Math.PI / 180;
+    const p1 = a.lat * r, p2 = b.lat * r, dp = (b.lat - a.lat) * r, dl = (b.lng - a.lng) * r;
+    const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+    const d = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    const y = Math.sin(dl) * Math.cos(p2), x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+    return { d, brg: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360 };
+  }
+  const relText = s => { if (!me) return ''; const r = distBearing(me, s); return fmtDist(r.d) + ' ' + compass(r.brg) + ' of you'; };
+  const labelText = s => esc(s.name || 'Spot');
+  const fresh = () => !!me && (Date.now() - lastFixAt) < FRESH_MS;
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  }
+
+  /* ---------- pins ---------- */
+  function popupHtml(s) {
+    const rel = relText(s);
+    return '<div class="pp">' +
+      '<div class="row"><input type="text" value="' + esc(s.name) + '" placeholder="Name this spot" maxlength="60" autocomplete="off"><button class="pri" data-a="save">Save</button></div>' +
+      '<div class="meta">' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + ' &middot; ±' + fmtAcc(s.acc) + '<br>' +
+      esc(fmtTime(s.t)) + '<span class="rel">' + (rel ? ' &middot; <b>' + rel + '</b>' : '') + '</span></div>' +
+      '<div class="row"><button data-a="nav">Directions</button><button data-a="move">Move to me</button><button class="danger" data-a="del">Delete</button></div>' +
+      '</div>';
+  }
+  function wirePopup(popup, s) {
+    const el = popup.getElement();
+    if (!el) return;
+    cur = { s, el };
+    const input = el.querySelector('input');
+    const save = () => {
+      s.name = input.value.trim();
+      saveState();
+      const m = markers.get(s.t); if (m) m.setTooltipContent(labelText(s));
+      map.closePopup(); toast('Saved');
+    };
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); save(); } });
+    el.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      const a = b.getAttribute('data-a');
+      if (a === 'save') save();
+      else if (a === 'nav') openDirections(s);
+      else if (a === 'move') moveToMe(s);
+      else if (a === 'del' && confirm('Delete "' + (s.name || 'this spot') + '"?')) removeSpot(s);
+    }));
+  }
+  function addMarker(s) {
+    const m = L.marker([s.lat, s.lng], { icon: pinIcon, keyboard: false }).addTo(map);
+    m.bindTooltip(labelText(s), { permanent: true, direction: 'bottom', className: 'lbl', opacity: 1 });
+    m.bindPopup(() => popupHtml(s), { maxWidth: 300, minWidth: 240, autoPanPaddingTopLeft: [16, 150], autoPanPaddingBottomRight: [16, 120] });   // 150 clears the zoom + layers controls
+    m.on('popupopen', e => wirePopup(e.popup, s));
+    m.on('popupclose', () => { cur = null; });
+    markers.set(s.t, m);
+    return m;
+  }
+  function focusSpot(s) {
+    follow = false; $('locate').classList.remove('on');
+    map.setView([s.lat, s.lng], Math.max(map.getZoom(), 17));
+    const m = markers.get(s.t); if (m) m.openPopup();
+  }
+  function removeSpot(s) {
+    spots = spots.filter(x => x !== s);
+    deleted.add(s.t);
+    const m = markers.get(s.t); if (m) { m.remove(); markers.delete(s.t); }
+    map.closePopup(); saveState(); toast('Deleted');
+  }
+  async function moveToMe(s) {
+    let fix = fresh() ? me : null;
+    if (!fix) { toast('Getting GPS fix…'); try { fix = await getFix(); } catch (e) { toast('No GPS fix — try again in a moment'); return; } }
+    s.lat = fix.lat; s.lng = fix.lng; s.acc = Math.round(fix.acc || 0);
+    const m = markers.get(s.t); if (m) m.setLatLng([s.lat, s.lng]);
+    saveState(); map.closePopup();
+    toast('Moved ' + (s.name || 'spot') + ' to where you are (±' + fmtAcc(s.acc) + ')');
+  }
+  function openDirections(s) {
+    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const url = ios ? 'https://maps.apple.com/?daddr=' + s.lat + ',' + s.lng + '&dirflg=w'
+                    : 'https://www.google.com/maps/dir/?api=1&destination=' + s.lat + ',' + s.lng + '&travelmode=walking';
+    window.open(url, '_blank', 'noopener');
+  }
+  function updateLabelVis() { document.body.classList.toggle('nolbl', map.getZoom() < 14); }
+
+  /* ---------- GPS ---------- */
+  function setStatus() {
+    const el = $('status');
+    if (!me) {
+      el.textContent = blocked ? 'Location unavailable — allow it in Settings' : 'Waiting for GPS…';
+      el.className = 'pill ' + (blocked ? 'bad' : 'wait');
+      return;
+    }
+    const stale = Date.now() - lastFixAt > 30000;
+    el.textContent = (stale ? 'GPS stale · last fix ' : 'GPS ') + '±' + fmtAcc(me.acc);
+    el.className = 'pill ' + (stale ? 'wait' : me.acc <= 15 ? 'good' : me.acc <= 40 ? 'ok' : 'bad');
+  }
+  function firstFix() {
+    const pts = spots.map(s => [s.lat, s.lng]);
+    if (pts.length && !follow) {
+      pts.push([me.lat, me.lng]);
+      map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 17 });
+    } else {
+      map.setView([me.lat, me.lng], 17);
+    }
+  }
+  function onFix(p) {
+    const c = p && p.coords;
+    if (!c || !isFinite(c.latitude) || !isFinite(c.longitude)) return;
+    me = { lat: c.latitude, lng: c.longitude, acc: c.accuracy || 0 };
+    lastFixAt = Date.now(); blocked = false;
+    const ll = [me.lat, me.lng];
+    const first = !map.hasLayer(meDot);
+    if (first) { meAcc.addTo(map); meDot.addTo(map); }
+    meDot.setLatLng(ll); meAcc.setLatLng(ll).setRadius(Math.max(me.acc, 1));
+    if (first) firstFix(); else if (follow) map.panTo(ll, { animate: true, duration: .5 });
+    setStatus(); updateDistances();
+    if (cur) { const r = cur.el.querySelector('.rel'); if (r) r.innerHTML = ' &middot; <b>' + relText(cur.s) + '</b>'; }
+  }
+  function onErr(e) { blocked = !!(e && e.code === 1); setStatus(); }
+  function startWatch() {
+    if (!navigator.geolocation) { blocked = true; setStatus(); return; }
+    if (watchId !== null) { try { navigator.geolocation.clearWatch(watchId); } catch (e) {} }
+    watchId = navigator.geolocation.watchPosition(onFix, onErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+  }
+  const getFix = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('no geolocation'));
+    navigator.geolocation.getCurrentPosition(p => { onFix(p); resolve(me); }, reject, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  });
+
+  async function tag() {
+    const btn = $('tag');
+    let fix = fresh() ? me : null;
+    if (!fix) {
+      btn.disabled = true; btn.textContent = 'Getting GPS fix…';
+      try { fix = await getFix(); }
+      catch (e) { toast(e && e.code === 1 ? 'Location is blocked — allow it in your browser settings' : 'No GPS fix yet — try again in a moment'); }
+      btn.disabled = false; btn.textContent = TAG_LABEL;
+      if (!fix) return;
+    }
+    const s = { t: Date.now(), lat: fix.lat, lng: fix.lng, acc: Math.round(fix.acc || 0), name: 'Spot ' + (spots.length + 1) };
+    spots.push(s);
+    addMarker(s);
+    saveState();
+    if (navigator.vibrate) navigator.vibrate(30);
+    focusSpot(s);
+    toast('Tagged ' + s.name + ' (±' + fmtAcc(s.acc) + ')');
+  }
+
+  /* ---------- list drawer ---------- */
+  const subText = s => (me ? relText(s) + ' &middot; ' : '') + esc(fmtTime(s.t));
+  function renderList() {
+    const ul = $('list');
+    if (!spots.length) {
+      ul.innerHTML = '<li class="empty">No spots yet. Stand where you want to come back to and tap <b>Tag this spot</b>.</li>';
+      return;
+    }
+    const rows = spots.map(s => ({ s, r: me ? distBearing(me, s) : null }));
+    rows.sort((a, b) => (a.r && b.r) ? a.r.d - b.r.d : b.s.t - a.s.t);   // nearest first, else newest first
+    ul.innerHTML = rows.map(({ s }) =>
+      '<li data-t="' + s.t + '"><div class="nm">' + labelText(s) + '</div><div class="sub">' + subText(s) + '</div></li>').join('');
+  }
+  function updateDistances() {
+    if ($('drawer').hidden) return;
+    $('list').querySelectorAll('li[data-t]').forEach(li => {
+      const s = spots.find(x => x.t === Number(li.getAttribute('data-t')));
+      if (s) li.querySelector('.sub').innerHTML = subText(s);
+    });
+  }
+  function toGPX(list) {
+    const x = v => String(v).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]);
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+      '<gpx version="1.1" creator="Forest Spots" xmlns="http://www.topografix.com/GPX/1/1">\n' +
+      list.map(s => '  <wpt lat="' + s.lat.toFixed(6) + '" lon="' + s.lng.toFixed(6) + '">\n' +
+        '    <time>' + new Date(s.t).toISOString() + '</time>\n' +
+        '    <name>' + x(s.name || 'Spot') + '</name>\n' +
+        '    <desc>GPS accuracy ±' + Math.round(s.acc || 0) + ' m</desc>\n' +
+        '  </wpt>').join('\n') +
+      '\n</gpx>\n';
+  }
+
+  /* ---------- wiring ---------- */
+  $('tag').addEventListener('click', tag);
+  $('locate').addEventListener('click', () => {
+    follow = true; $('locate').classList.add('on');
+    if (me) map.setView([me.lat, me.lng], Math.max(map.getZoom(), 17));
+    else { toast('Waiting for GPS…'); startWatch(); }
+  });
+  map.on('dragstart', () => { follow = false; $('locate').classList.remove('on'); });
+  map.on('zoomend', updateLabelVis);
+  $('spots').addEventListener('click', () => {
+    const d = $('drawer');
+    if (d.hidden) { renderList(); d.hidden = false; } else d.hidden = true;
+  });
+  $('close').addEventListener('click', () => { $('drawer').hidden = true; });
+  $('list').addEventListener('click', e => {
+    const li = e.target.closest('li[data-t]');
+    if (!li) return;
+    const s = spots.find(x => x.t === Number(li.getAttribute('data-t')));
+    if (!s) return;
+    $('drawer').hidden = true;
+    focusSpot(s);
+  });
+  $('share').addEventListener('click', async () => {
+    if (!spots.length) { toast('Nothing to share yet'); return; }
+    const url = location.origin + location.pathname + location.search + buildHash();
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Forest Spots', text: spots.length + ' saved spot' + (spots.length === 1 ? '' : 's'), url }); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(url); toast('Link copied'); return; }
+      prompt('Copy this link:', url);
+    } catch (e) { if (!e || e.name !== 'AbortError') toast('Couldn’t share'); }
+  });
+  $('gpx').addEventListener('click', async () => {
+    if (!spots.length) { toast('Nothing to export yet'); return; }
+    const xml = toGPX(spots), name = 'forest-spots-' + new Date().toISOString().slice(0, 10) + '.gpx';
+    try {
+      const file = new File([xml], name, { type: 'application/gpx+xml' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Forest Spots' }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([xml], { type: 'application/gpx+xml' }));
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    } catch (e) { toast('Couldn’t export'); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') startWatch(); });
+
+  /* ---------- boot ---------- */
+  const added = loadState();
+  spots.forEach(addMarker);
+  saveState();
+  if (spots.length) map.fitBounds(L.latLngBounds(spots.map(s => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 17 });
+  updateLabelVis();
+  if (added) toast('Added ' + added + ' spot' + (added === 1 ? '' : 's') + ' from link');
+  startWatch();
+  setInterval(setStatus, 5000);
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
