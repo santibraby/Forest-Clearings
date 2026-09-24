@@ -147,7 +147,7 @@
 <div id="appScreen">
   <div class="fg-panel">
     <div class="app-top">
-      <div class="app-brand">FRC<span class="ver">forest spots v1.5</span></div>
+      <div class="app-brand">FRC<span class="ver">forest spots v1.6</span></div>
       <div id="status" class="app-meta wait">GPS - searching</div>
     </div>
     <div id="map"></div>
@@ -231,8 +231,8 @@
   if (lsGet(LS_LBL) === '1') setLabels(true);
   window.addEventListener('resize', () => map.invalidateSize());
 
-  const property = L.polygon(PROPERTY.ring, { color: '#F0C9B4', weight: 2, opacity: .9, fillColor: '#F0C9B4', fillOpacity: .07, interactive: false }).addTo(map);
-  property.bindTooltip(PROPERTY.name, { permanent: true, direction: 'center', className: 'lbl', opacity: 1 });
+  // property line drawn as a site-plan centerline: long dash, short dash
+  const property = L.polygon(PROPERTY.ring, { color: '#F0C9B4', weight: 1, opacity: .95, fill: false, dashArray: '12 5 2 5', lineCap: 'butt', lineJoin: 'miter', interactive: false }).addTo(map);
 
   map.createPane('me').style.zIndex = 640;            // above pins, below labels/popups
   const meDot = L.circleMarker(HOME, { pane: 'me', radius: 5, color: '#111111', weight: 2, fillColor: '#F05300', fillOpacity: 1 });
