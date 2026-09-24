@@ -147,7 +147,7 @@
 <div id="appScreen">
   <div class="fg-panel">
     <div class="app-top">
-      <div class="app-brand">FRC<span class="ver">forest spots v1.2</span></div>
+      <div class="app-brand">FRC<span class="ver">forest spots v1.3</span></div>
       <div id="status" class="app-meta wait">GPS - searching</div>
     </div>
     <div id="map"></div>
@@ -190,7 +190,17 @@
 (() => {
   'use strict';
 
-  const HOME = [43.10, -73.81];                       // between Saratoga Springs and Greenfield Center
+  // 175 Wilton Rd, Greenfield Center - boundary walked from the survey's bearings and distances,
+  // placed on the imagery by fitting the three houses. Order: road frontage west to east, stone wall
+  // south, the 57 ft jog east, strip east edge south, strip south edge west, the 841 ft line north,
+  // then the new line along the driveway back to the road.
+  const PROPERTY = {
+    name: '175 wilton rd',
+    ring: [[43.129783, -73.817770], [43.129833, -73.817366], [43.129900, -73.817025], [43.129976, -73.816637],
+           [43.128266, -73.816315], [43.128284, -73.816103], [43.126773, -73.815832], [43.126692, -73.816631],
+           [43.128973, -73.817061], [43.129085, -73.817398], [43.129343, -73.817554], [43.129420, -73.817636]]
+  };
+  const HOME = [43.1283, -73.8168];                   // the property
   const LS = 'forestSpots.v1', LS_DEL = 'forestSpots.deleted.v1', LS_LBL = 'forestSpots.labels';
   const LS_TRAILS = 'forestSpots.trails.v1', LS_REC = 'forestSpots.recording';
   const FRESH_MS = 20000;                             // a GPS fix younger than this is used as-is when tagging
@@ -220,6 +230,9 @@
   }
   if (lsGet(LS_LBL) === '1') setLabels(true);
   window.addEventListener('resize', () => map.invalidateSize());
+
+  const property = L.polygon(PROPERTY.ring, { color: '#F0C9B4', weight: 2, opacity: .9, fillColor: '#F0C9B4', fillOpacity: .07, interactive: false }).addTo(map);
+  property.bindTooltip(PROPERTY.name, { permanent: true, direction: 'center', className: 'lbl', opacity: 1 });
 
   map.createPane('me').style.zIndex = 640;            // above pins, below labels/popups
   const meDot = L.circleMarker(HOME, { pane: 'me', radius: 7, color: '#111111', weight: 2.5, fillColor: '#F05300', fillOpacity: 1 });
@@ -636,7 +649,7 @@
   spots.forEach(addMarker);
   trails.forEach(drawTrail);
   saveState();
-  if (spots.length) map.fitBounds(L.latLngBounds(spots.map(s => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 17 });
+  map.fitBounds(property.getBounds().extend(L.latLngBounds(spots.map(s => [s.lat, s.lng]))), { padding: [24, 24], maxZoom: 17 });
   updateLabelVis();
   if (added) toast('Added ' + added + ' spot' + (added === 1 ? '' : 's') + ' from link');
   if (rec) setRec(true, true);

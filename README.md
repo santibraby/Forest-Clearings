@@ -21,6 +21,15 @@ Live at https://santibraby.github.io/Forest-Clearings/ (capital F and C - the ad
   - route - **slime trail**: tap to start recording your path as a line on the map, tap again to stop
   - layers - roads and place names on or off
 
+## Property outline
+
+The peach outline is the boundary of 175 Wilton Rd, walked from the survey's bearings and distances
+(the two calls hidden under a hand on the photo were solved from loop closure; the sheet says 6.00 acres,
+the outline computes to 5.88) and placed on the imagery by fitting the three houses on the survey to the
+houses in the satellite view. Expect it to be within a few metres near the houses; the far south end is
+extrapolated from the survey calls, so treat it as approximate there. The coordinates live in `PROPERTY`
+at the top of the script in `index.html`.
+
 ## Slime trail
 
 While a trail is recording, the route icon pulses and the readout shows `REC` with the distance so far.
