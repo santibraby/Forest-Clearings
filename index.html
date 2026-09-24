@@ -7,137 +7,182 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Spots">
-<meta name="theme-color" content="#0b0f0c">
+<meta name="theme-color" content="#111111">
 <title>Forest Spots</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  :root { --bar: 92px; --accent: #f7b733; --panel: rgba(14, 18, 15, .94); --muted: #b5bdb7; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
-  body {
-    position: fixed; inset: 0; overflow: hidden; background: #0b0f0c; color: #f0f3ef;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+  /* ---- FRC tool style tokens (frc-tool-style) ---- */
+  :root {
+    --peach-100: #F05300; --peach-75: #F07A3C; --peach-50: #F0A178; --peach-25: #F0C9B4; --grey-0: #F0F0F0;
+    --bg: #111111; --panel: #171614; --line: #29251f;
+    --ink: var(--grey-0); --dim: rgba(240, 240, 240, .5); --faint: rgba(240, 240, 240, .35); --ph: rgba(240, 240, 240, .28);
+    --mono: "JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --serif: Georgia, "Times New Roman", serif;
+    --radius: 3px; --radius-panel: 8px; --shadow: 0 6px 24px rgba(0, 0, 0, .5);
+    --canvas-bg: rgba(17, 17, 17, .6);
+    --canvas-shadow: 0 10px 44px rgba(0, 0, 0, .55), 0 2px 10px rgba(0, 0, 0, .4);
   }
-  button { font: inherit; touch-action: manipulation; cursor: pointer; }
-  #map { position: absolute; inset: 0; background: #0b0f0c; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background-color: var(--bg);
+    background-image: linear-gradient(rgba(240, 201, 180, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(240, 201, 180, .05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    color: var(--ink); font-family: var(--mono); font-size: 13px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  body { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; caret-color: var(--peach-50); }
+  ::selection { background: rgba(240, 161, 120, .35); }
+  button { font-family: inherit; touch-action: manipulation; cursor: pointer; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
 
-  /* Leaflet chrome, tuned for a dark UI + phone safe areas */
-  .leaflet-top { top: env(safe-area-inset-top, 0px); }
-  .leaflet-bottom { bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px)); }
-  .leaflet-container { font: inherit; }
-  .leaflet-control-attribution { background: rgba(0, 0, 0, .45) !important; color: #ccc !important; font-size: 10px; }
-  .leaflet-control-attribution a { color: #ddd !important; }
-  .leaflet-bar a { background: var(--panel) !important; color: #fff !important; border-bottom-color: rgba(255, 255, 255, .12) !important; }
-  .leaflet-control-layers { background: var(--panel) !important; color: #fff; border: 1px solid rgba(255, 255, 255, .15) !important; }
-  .leaflet-control-layers-toggle { filter: invert(1); }
-  .leaflet-control-layers-expanded { padding: 8px 12px; }
-  .leaflet-popup-content-wrapper { border-radius: 12px; background: #151a16; color: #eef2ee; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
-  .leaflet-popup-tip { background: #151a16; }
-  .leaflet-popup-content { margin: 12px 14px; font-size: 14px; line-height: 1.35; }
-  .leaflet-popup-close-button { color: #aaa !important; font-size: 22px !important; padding: 6px 8px 0 0 !important; }
+  /* ---- the stage: floating canvas + icon rail ---- */
+  #appScreen {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; display: flex; flex-direction: row; gap: 6px;
+    padding: calc(42px + env(safe-area-inset-top, 0px)) calc(6px + env(safe-area-inset-right, 0px)) calc(42px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+  }
+  .fg-panel {
+    flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px;
+    background: var(--canvas-bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--canvas-shadow); padding: 14px;
+  }
+  .app-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--peach-25); white-space: nowrap; }
+  .app-brand { flex-shrink: 0; }
+  .app-brand .ver { margin-left: .9em; color: var(--faint); letter-spacing: .16em; }
+  .app-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: .16em; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .app-meta.good { color: var(--peach-25); }
+  .app-meta.wait { color: var(--faint); animation: pulse 1.4s ease infinite; }
+  .app-meta.bad { color: var(--dim); }
 
-  /* Pins + labels */
+  #map { flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--bg); overflow: hidden; isolation: isolate; }
+
+  /* ---- controls ---- */
+  .frc-btn {
+    padding: 13px 12px; background: transparent; border: 1px solid var(--line); border-radius: var(--radius); color: var(--peach-25);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  }
+  .frc-btn--primary { background: var(--peach-100); border-color: var(--peach-100); color: #0a0a0a; font-weight: 500; letter-spacing: .16em; }
+  .frc-btn:disabled { opacity: .7; cursor: default; animation: pulse 1.4s ease infinite; }
+  @media (hover: hover) {
+    .frc-btn:hover { background: var(--peach-50); color: #0a0a0a; }
+    .frc-btn--primary:hover { background: var(--peach-75); border-color: var(--peach-75); }
+    .frc-btn--danger:hover { background: var(--peach-100); border-color: var(--peach-100); color: #0a0a0a; }
+  }
+  .tag { width: 100%; max-width: 420px; align-self: center; padding: 18px 12px; font-size: 11px; letter-spacing: .18em; }
+  .frc-input { width: 100%; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); padding: 10px 12px; outline: none; font: italic 16px/1.4 var(--serif); }
+  .frc-input::placeholder { color: var(--ph); font-style: italic; }
+  .frc-input:focus { border-color: var(--peach-50); }
+
+  /* ---- icon rail ---- */
+  .tabbar { flex-shrink: 0; width: 40px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 160px 0 0; }
+  .tab { position: relative; width: 38px; height: 38px; background: none; border: none; padding: 0; display: flex; align-items: center; justify-content: center; color: var(--faint); transition: color 150ms ease; }
+  @media (hover: hover) { .tab:hover { color: var(--dim); } }
+  .tab.active { color: var(--peach-25); }
+  .tab.rec { color: var(--peach-25); animation: pulse 1.4s ease infinite; }
+  .tab svg { width: 21px; height: 21px; display: block; }
+  .tab-badge { display: none; position: absolute; top: -6px; right: -6px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px; background: var(--peach-100); color: #0a0a0a; font-size: 9px; font-weight: 500; line-height: 15px; letter-spacing: 0; text-align: center; }
+  .tab-badge.on { display: block; }
+
+  /* ---- leaflet skin ---- */
+  .leaflet-container { font-family: var(--mono); background: var(--bg); }
+  .leaflet-control-attribution { background: rgba(17, 17, 17, .7) !important; color: var(--faint) !important; font: 8px/1.5 var(--mono) !important; letter-spacing: .04em; padding: 2px 6px; }
+  .leaflet-control-attribution a { color: var(--dim) !important; text-decoration: none; }
   .pin { background: none; border: 0; }
-  .pin svg { width: 30px; height: 40px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
-  .lbl { background: rgba(10, 12, 10, .85); color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 700; box-shadow: none; white-space: nowrap; }
+  .pin svg { width: 26px; height: 36px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+  .lbl { background: rgba(23, 22, 20, .85); border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); font: italic 12px/1.3 var(--serif); padding: 2px 7px; box-shadow: none; white-space: nowrap; }
   .lbl::before { display: none; }
   body.nolbl .lbl { display: none; }
+  .leaflet-popup-content-wrapper { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: 0 12px 44px rgba(0, 0, 0, .6); color: var(--ink); }
+  .leaflet-popup-tip-container { display: none; }
+  .leaflet-popup-content { margin: 14px 14px 12px; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+  .leaflet-popup-close-button { color: var(--faint) !important; font: 400 18px/1 var(--mono) !important; padding: 9px 10px 0 0 !important; width: auto !important; height: auto !important; }
+  .pp .row { display: flex; gap: 6px; margin: 0 0 8px; }
+  .pp .row:last-child { margin-bottom: 0; }
+  .pp .row .frc-btn { flex: 1; padding: 11px 6px; font-size: 9px; letter-spacing: .12em; white-space: nowrap; }
+  .pp .row .frc-btn.save { flex: none; padding: 11px 12px; }
+  .pp .meta { margin: 0 0 10px; font-size: 9px; line-height: 1.8; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .pp .meta b { color: var(--peach-50); font-weight: 400; }
+  .pp .title { margin: 0 0 4px; font: italic 15px/1.4 var(--serif); color: var(--ink); }
 
-  /* Popup form */
-  .pp .row { display: flex; gap: 6px; margin: 6px 0; }
-  .pp input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .2); background: #0b0f0c; color: #fff; font-size: 16px; }
-  .pp button { flex: 1; height: 40px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; font-weight: 600; font-size: 13px; }
-  .pp button.pri { flex: none; padding: 0 14px; background: var(--accent); color: #1b1300; border-color: transparent; }
-  .pp button.danger { color: #ff7b7b; }
-  .pp .meta { color: var(--muted); font-size: 12.5px; margin: 4px 0 2px; }
-  .pp .meta b { color: #fff; }
-
-  /* GPS status pill */
-  .pill {
-    position: absolute; left: 10px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 1100;
-    display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 120px);
-    padding: 8px 12px; border-radius: 999px; background: var(--panel); font-size: 14px; font-weight: 600;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
-  }
-  .pill::before { content: ""; flex: none; width: 9px; height: 9px; border-radius: 50%; background: #888; }
-  .pill.good::before { background: #3ddc84; }
-  .pill.ok::before { background: #f7b733; }
-  .pill.bad::before { background: #ff5a5a; }
-  .pill.wait::before { background: #9aa; animation: blink 1s infinite; }
-  @keyframes blink { 50% { opacity: .25; } }
-
-  /* Bottom bar */
-  .bar {
-    position: absolute; left: 0; right: 0; bottom: 0; z-index: 1100; display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); pointer-events: none;
-  }
-  .bar > * { pointer-events: auto; }
-  #tag {
-    flex: 1; height: 64px; border: 0; border-radius: 18px; background: var(--accent); color: #1b1300;
-    font-size: 20px; font-weight: 800; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
-  }
-  #tag:active { transform: scale(.98); }
-  #tag:disabled { opacity: .75; }
-  .rnd {
-    position: relative; flex: none; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center;
-    border: 1px solid rgba(255, 255, 255, .18); background: var(--panel); color: #fff; box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
-  }
-  .rnd svg { width: 26px; height: 26px; }
-  .rnd.on { color: #4c9fff; border-color: #4c9fff; }
-  .badge {
-    position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
-    display: grid; place-items: center; background: var(--accent); color: #1b1300; font-size: 12px; font-weight: 800;
-  }
-
-  /* Saved-spots drawer */
-  .drawer {
-    position: absolute; left: 10px; right: 10px; bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px)); z-index: 1100;
-    max-height: 55vh; display: flex; flex-direction: column; overflow: hidden;
-    background: var(--panel); border: 1px solid rgba(255, 255, 255, .14); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
-  }
-  .drawer[hidden] { display: none; }
-  .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; font-weight: 700; border-bottom: 1px solid rgba(255, 255, 255, .1); }
-  .dh button { background: none; border: 0; color: #bbb; font-size: 18px; padding: 4px 8px; }
-  #list { flex: 1; list-style: none; margin: 0; padding: 4px 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  #list li { padding: 11px 14px; border-bottom: 1px solid rgba(255, 255, 255, .07); cursor: pointer; }
-  #list li:active { background: rgba(255, 255, 255, .06); }
-  #list .nm { font-weight: 700; font-size: 16px; }
-  #list .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
-  #list .empty { color: var(--muted); cursor: default; line-height: 1.45; }
-  .df { display: flex; gap: 10px; padding: 10px 12px; border-top: 1px solid rgba(255, 255, 255, .1); }
-  .df button { flex: 1; height: 42px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: #fff; font-weight: 600; }
-
-  /* Toast */
+  /* ---- toast ---- */
   .toast {
-    position: absolute; left: 50%; bottom: calc(var(--bar) + env(safe-area-inset-bottom, 0px) + 12px); z-index: 1200;
-    transform: translate(-50%, 10px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
-    max-width: 90vw; padding: 10px 16px; border-radius: 12px; background: #fff; color: #111; font-weight: 600; font-size: 14px; text-align: center;
+    position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 1400; transform: translate(-50%, -8px);
+    visibility: hidden; opacity: 0; transition: opacity 150ms ease, transform 150ms ease, visibility 0s linear 150ms;
+    width: max-content; max-width: min(90vw, 420px); padding: 10px 14px; background: var(--panel); border: 1px solid var(--peach-50); border-radius: var(--radius);
+    color: var(--ink); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; text-align: center; pointer-events: none;
   }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.show { visibility: visible; opacity: 1; transform: translate(-50%, 0); transition: opacity 150ms ease, transform 150ms ease, visibility 0s; }
+
+  /* ---- saved spots overlay + sheets ---- */
+  .overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1300; background: rgba(17, 17, 17, .75); display: flex; align-items: center; justify-content: center; padding: 24px calc(16px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) 16px; }
+  .overlay[hidden] { display: none; }
+  .overlay-panel { width: 100%; max-width: 420px; max-height: min(78vh, 680px); display: flex; flex-direction: column; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-panel); box-shadow: 0 12px 44px rgba(0, 0, 0, .6); padding: 14px 14px 12px; }
+  .overlay-top { display: flex; align-items: center; justify-content: space-between; }
+  .overlay-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 8px; }
+  .eyebrow { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--dim); }
+  .overlay-body .eyebrow { margin-top: 6px; }
+  .overlay-body .eyebrow:first-child { margin-top: 0; }
+  .x { background: none; border: none; color: var(--faint); font: 400 18px/1 var(--mono); padding: 4px 6px; transition: color 150ms ease; }
+  @media (hover: hover) { .x:hover { color: var(--dim); } .sheet-row:hover { background: var(--panel); } }
+  .sheet { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--line); border-radius: var(--radius); flex-shrink: 0; }
+  .sheet[hidden] { display: none; }
+  .sheet-row { background: var(--bg); padding: 11px 12px; cursor: pointer; transition: background 150ms ease; }
+  .sheet-row + .sheet-row { margin-top: 1px; }
+  .sheet-row .meta { display: flex; justify-content: space-between; gap: 10px; font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .sheet-row .meta .when { color: var(--peach-50); white-space: nowrap; }
+  .sheet-row .nm { margin-top: 2px; font: italic 14px/1.6 var(--serif); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sheet-row.empty { cursor: default; font: italic 14px/1.6 var(--serif); color: var(--dim); }
+  .overlay-actions { display: flex; gap: 8px; }
+  .overlay-actions .frc-btn { flex: 1; }
+
+  @media (max-width: 480px) {
+    html, body { background-size: 24px 24px; }
+    #appScreen { padding-top: calc(30px + env(safe-area-inset-top, 0px)); padding-bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+    .fg-panel { padding: 12px 10px 10px; }
+    .app-brand .ver { display: none; }
+  }
 </style>
 </head>
 <body>
-<div id="map"></div>
-
-<div id="status" class="pill wait">Waiting for GPS…</div>
-<div id="toast" class="toast" role="status"></div>
-
-<div id="drawer" class="drawer" hidden>
-  <div class="dh"><span>Saved spots</span><button id="close" aria-label="Close">✕</button></div>
-  <ul id="list"></ul>
-  <div class="df"><button id="share">Share link</button><button id="gpx">Export GPX</button></div>
+<div id="appScreen">
+  <div class="fg-panel">
+    <div class="app-top">
+      <div class="app-brand">FRC<span class="ver">forest spots v1.2</span></div>
+      <div id="status" class="app-meta wait">GPS - searching</div>
+    </div>
+    <div id="map"></div>
+    <button id="tag" class="frc-btn frc-btn--primary tag">Tag my location</button>
+  </div>
+  <div class="tabbar">
+    <button id="spots" class="tab" aria-label="Saved spots and trails">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/></svg>
+      <span id="count" class="tab-badge">0</span>
+    </button>
+    <button id="locate" class="tab" aria-label="Center on me">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v2M12 20v2M20 12h2M2 12h2"/></svg>
+    </button>
+    <button id="trail" class="tab" aria-label="Slime trail - record my path">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12"/></svg>
+    </button>
+    <button id="layers" class="tab" aria-label="Roads and labels">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l-8 4 8 4 8-4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>
+    </button>
+  </div>
 </div>
 
-<div class="bar">
-  <button id="spots" class="rnd" aria-label="Saved spots">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-    <span id="count" class="badge">0</span>
-  </button>
-  <button id="tag">📍 Tag this spot</button>
-  <button id="locate" class="rnd" aria-label="Center on me">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-  </button>
+<div id="toast" class="toast" role="status"></div>
+
+<div id="overlay" class="overlay" hidden>
+  <div class="overlay-panel">
+    <div class="overlay-top"><span class="eyebrow">Saved</span><button id="close" class="x" aria-label="Close">&times;</button></div>
+    <div class="overlay-body">
+      <span class="eyebrow">Spots</span>
+      <ul id="list" class="sheet"></ul>
+      <span id="trailsHead" class="eyebrow" hidden>Slime trails</span>
+      <ul id="trailList" class="sheet" hidden></ul>
+    </div>
+    <div class="overlay-actions"><button id="share" class="frc-btn">Share link</button><button id="gpx" class="frc-btn">Export GPX</button></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -147,9 +192,11 @@
 
   const HOME = [43.10, -73.81];                       // between Saratoga Springs and Greenfield Center
   const LS = 'forestSpots.v1', LS_DEL = 'forestSpots.deleted.v1', LS_LBL = 'forestSpots.labels';
+  const LS_TRAILS = 'forestSpots.trails.v1', LS_REC = 'forestSpots.recording';
   const FRESH_MS = 20000;                             // a GPS fix younger than this is used as-is when tagging
-  const TAG_LABEL = '📍 Tag this spot';
+  const TAG_LABEL = 'Tag my location';
   const FT = 3.28084;
+  const TRAIL_MIN_STEP = 3, TRAIL_MAX_ACC = 60, TRAIL_GAP_MS = 10 * 60 * 1000, TRAIL_MAX_PTS = 20000;
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -158,7 +205,7 @@
 
   /* ---------- map ---------- */
   const map = L.map('map', { zoomControl: false }).setView(HOME, 13);
-  L.control.zoom({ position: 'topright' }).addTo(map);
+  map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
   const tileOpts = () => ({ maxNativeZoom: 19, maxZoom: 21, detectRetina: true });
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     Object.assign({ attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }, tileOpts())).addTo(map);
@@ -166,23 +213,29 @@
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', tileOpts()),
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', tileOpts())
   ]);
-  L.control.layers(null, { 'Roads &amp; labels': labels }, { position: 'topright' }).addTo(map);
-  if (lsGet(LS_LBL) === '1') labels.addTo(map);
-  map.on('overlayadd', () => lsSet(LS_LBL, '1'));
-  map.on('overlayremove', () => lsSet(LS_LBL, '0'));
+  function setLabels(on) {
+    if (on) labels.addTo(map); else map.removeLayer(labels);
+    $('layers').classList.toggle('active', on);
+    lsSet(LS_LBL, on ? '1' : '0');
+  }
+  if (lsGet(LS_LBL) === '1') setLabels(true);
+  window.addEventListener('resize', () => map.invalidateSize());
 
   map.createPane('me').style.zIndex = 640;            // above pins, below labels/popups
-  const meDot = L.circleMarker(HOME, { pane: 'me', radius: 7, color: '#fff', weight: 2.5, fillColor: '#2f80ff', fillOpacity: 1 });
-  const meAcc = L.circle(HOME, { pane: 'me', radius: 1, color: '#2f80ff', weight: 1, opacity: .6, fillColor: '#2f80ff', fillOpacity: .12, interactive: false });
+  const meDot = L.circleMarker(HOME, { pane: 'me', radius: 7, color: '#111111', weight: 2.5, fillColor: '#F05300', fillOpacity: 1 });
+  const meAcc = L.circle(HOME, { pane: 'me', radius: 1, color: '#F0A178', weight: 1, opacity: .55, fillColor: '#F0A178', fillOpacity: .12, interactive: false });
 
-  const PIN_SVG = '<svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 1C7.3 1 1.5 6.9 1.5 14.4c0 9.6 11.4 22.4 12.6 23.7a1.2 1.2 0 0 0 1.8 0C17.1 36.8 28.5 24 28.5 14.4 28.5 6.9 22.7 1 15 1z" fill="#f7b733" stroke="#3a2a00" stroke-width="1.5"/><circle cx="15" cy="14.5" r="5" fill="#1b1300"/></svg>';
-  const pinIcon = L.divIcon({ className: 'pin', html: PIN_SVG, iconSize: [30, 40], iconAnchor: [15, 38], popupAnchor: [0, -36], tooltipAnchor: [0, 4] });
+  const PIN_SVG = '<svg viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 1C7.3 1 1.5 6.9 1.5 14.4c0 9.6 11.4 22.4 12.6 23.7a1.2 1.2 0 0 0 1.8 0C17.1 36.8 28.5 24 28.5 14.4 28.5 6.9 22.7 1 15 1z" fill="#F0C9B4" stroke="#29251f" stroke-width="1.5"/><circle cx="15" cy="14.5" r="5" fill="#0a0a0a"/></svg>';
+  const pinIcon = L.divIcon({ className: 'pin', html: PIN_SVG, iconSize: [26, 36], iconAnchor: [13, 34], popupAnchor: [0, -30], tooltipAnchor: [0, 4] });
 
   /* ---------- state ---------- */
   let spots = [];              // { t (ms, doubles as id), lat, lng, acc (m), name }
   let deleted = new Set();     // ids of deleted spots, so a stale shared link can't resurrect them
   const markers = new Map();   // t -> L.marker
-  let me = null, lastFixAt = 0, follow = false, watchId = null, blocked = false, cur = null;
+  let trails = [];             // { t (start ms, doubles as id), end (ms|null), pts: [[lat, lng, ms], ...] }
+  let rec = false;             // slime trail recording
+  const trailLayers = new Map(); // t -> { glow, line }
+  let me = null, lastFixAt = 0, follow = false, watchId = null, blocked = false, cur = null, wakeLock = null;
 
   function parseHash() {
     const h = location.hash || '';
@@ -214,6 +267,10 @@
       spots.push(s); added++;
     });
     spots.sort((a, b) => a.t - b.t);
+    try { trails = JSON.parse(lsGet(LS_TRAILS) || '[]'); } catch (e) { trails = []; }
+    if (!Array.isArray(trails)) trails = [];
+    trails = trails.filter(tr => tr && isFinite(tr.t) && Array.isArray(tr.pts)).map(tr => ({ t: tr.t, end: isFinite(tr.end) ? tr.end : null, pts: tr.pts.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])) }));
+    rec = lsGet(LS_REC) === '1';                     // a walk in progress survives a reload
     return added;
   }
   function saveState() {
@@ -221,12 +278,20 @@
     lsSet(LS_DEL, JSON.stringify(Array.from(deleted).slice(-500)));
     try { history.replaceState(null, '', location.pathname + location.search + buildHash()); } catch (e) {}
     $('count').textContent = spots.length;
+    $('count').classList.toggle('on', spots.length > 0);
+  }
+  let trailSaveTimer = null;
+  function saveTrails(now) {
+    clearTimeout(trailSaveTimer);
+    const write = () => { trailSaveTimer = null; lsSet(LS_TRAILS, JSON.stringify(trails)); };
+    if (now) write(); else trailSaveTimer = setTimeout(write, 4000);   // a fix a second - don't hammer storage
   }
 
   /* ---------- formatting ---------- */
   const fmtAcc = m => Math.round((m || 0) * FT) + ' ft';
   const fmtDist = m => { const ft = m * FT; return ft < 1320 ? Math.round(ft) + ' ft' : (ft / 5280).toFixed(2) + ' mi'; };
-  const fmtTime = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmtTime = t => new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(', ', ' - ');
+  const fmtDur = ms => { const m = Math.round(ms / 60000); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr ' + (m % 60) + ' min'; };
   const compass = b => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(b / 45) % 8];
   function distBearing(a, b) {
     const R = 6371000, r = Math.PI / 180;
@@ -237,8 +302,15 @@
     return { d, brg: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360 };
   }
   const relText = s => { if (!me) return ''; const r = distBearing(me, s); return fmtDist(r.d) + ' ' + compass(r.brg) + ' of you'; };
-  const labelText = s => esc(s.name || 'Spot');
+  const labelText = s => esc(s.name || 'spot');
   const fresh = () => !!me && (Date.now() - lastFixAt) < FRESH_MS;
+  function trailLen(tr) {
+    let d = 0;
+    for (let i = 1; i < tr.pts.length; i++) d += distBearing({ lat: tr.pts[i - 1][0], lng: tr.pts[i - 1][1] }, { lat: tr.pts[i][0], lng: tr.pts[i][1] }).d;
+    return d;
+  }
+  const trailEnd = tr => tr.end != null ? tr.end : (tr.pts.length ? tr.pts[tr.pts.length - 1][2] : tr.t);
+  const isLive = tr => rec && tr === trails[trails.length - 1] && tr.end == null;
 
   let toastTimer = null;
   function toast(msg) {
@@ -251,10 +323,10 @@
   function popupHtml(s) {
     const rel = relText(s);
     return '<div class="pp">' +
-      '<div class="row"><input type="text" value="' + esc(s.name) + '" placeholder="Name this spot" maxlength="60" autocomplete="off"><button class="pri" data-a="save">Save</button></div>' +
-      '<div class="meta">' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + ' &middot; ±' + fmtAcc(s.acc) + '<br>' +
+      '<div class="row"><input class="frc-input" type="text" value="' + esc(s.name) + '" placeholder="name this spot" maxlength="60" autocomplete="off"><button class="frc-btn save" data-a="save">Save</button></div>' +
+      '<div class="meta">' + s.lat.toFixed(5) + ', ' + s.lng.toFixed(5) + ' &middot; &plusmn;' + fmtAcc(s.acc) + '<br>' +
       esc(fmtTime(s.t)) + '<span class="rel">' + (rel ? ' &middot; <b>' + rel + '</b>' : '') + '</span></div>' +
-      '<div class="row"><button data-a="nav">Directions</button><button data-a="move">Move to me</button><button class="danger" data-a="del">Delete</button></div>' +
+      '<div class="row"><button class="frc-btn frc-btn--danger" data-a="del">Delete</button><button class="frc-btn" data-a="nav">Directions</button><button class="frc-btn" data-a="move">Move to me</button></div>' +
       '</div>';
   }
   function wirePopup(popup, s) {
@@ -281,14 +353,14 @@
   function addMarker(s) {
     const m = L.marker([s.lat, s.lng], { icon: pinIcon, keyboard: false }).addTo(map);
     m.bindTooltip(labelText(s), { permanent: true, direction: 'bottom', className: 'lbl', opacity: 1 });
-    m.bindPopup(() => popupHtml(s), { maxWidth: 300, minWidth: 240, autoPanPaddingTopLeft: [16, 150], autoPanPaddingBottomRight: [16, 120] });   // 150 clears the zoom + layers controls
+    m.bindPopup(() => popupHtml(s), { maxWidth: 264, minWidth: 220, autoPanPadding: [10, 10] });
     m.on('popupopen', e => wirePopup(e.popup, s));
     m.on('popupclose', () => { cur = null; });
     markers.set(s.t, m);
     return m;
   }
   function focusSpot(s) {
-    follow = false; $('locate').classList.remove('on');
+    follow = false; $('locate').classList.remove('active');
     map.setView([s.lat, s.lng], Math.max(map.getZoom(), 17));
     const m = markers.get(s.t); if (m) m.openPopup();
   }
@@ -300,11 +372,11 @@
   }
   async function moveToMe(s) {
     let fix = fresh() ? me : null;
-    if (!fix) { toast('Getting GPS fix…'); try { fix = await getFix(); } catch (e) { toast('No GPS fix — try again in a moment'); return; } }
+    if (!fix) { toast('Getting GPS fix'); try { fix = await getFix(); } catch (e) { toast('No GPS fix - try again in a moment'); return; } }
     s.lat = fix.lat; s.lng = fix.lng; s.acc = Math.round(fix.acc || 0);
     const m = markers.get(s.t); if (m) m.setLatLng([s.lat, s.lng]);
     saveState(); map.closePopup();
-    toast('Moved ' + (s.name || 'spot') + ' to where you are (±' + fmtAcc(s.acc) + ')');
+    toast('Moved ' + (s.name || 'spot') + ' to where you are - ±' + fmtAcc(s.acc));
   }
   function openDirections(s) {
     const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -314,17 +386,93 @@
   }
   function updateLabelVis() { document.body.classList.toggle('nolbl', map.getZoom() < 14); }
 
+  /* ---------- slime trails ---------- */
+  function trailPopupHtml(tr) {
+    const live = isLive(tr);
+    return '<div class="pp"><div class="title">slime trail' + (live ? ' - recording' : '') + '</div>' +
+      '<div class="meta">' + fmtDist(trailLen(tr)) + ' &middot; ' + fmtDur(trailEnd(tr) - tr.t) + ' &middot; ' + tr.pts.length + ' points<br>' + esc(fmtTime(tr.t)) + '</div>' +
+      '<div class="row">' + (live ? '<button class="frc-btn" data-a="stop">Stop trail</button>' : '<button class="frc-btn frc-btn--danger" data-a="del">Delete trail</button>') + '</div></div>';
+  }
+  function wireTrailPopup(popup, tr) {
+    const el = popup.getElement();
+    if (!el) return;
+    el.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      const a = b.getAttribute('data-a');
+      if (a === 'stop') { map.closePopup(); setRec(false); }
+      else if (a === 'del' && confirm('Delete this slime trail?')) removeTrail(tr);
+    }));
+  }
+  function drawTrail(tr) {
+    const ll = tr.pts.map(p => [p[0], p[1]]);
+    let ly = trailLayers.get(tr.t);
+    if (!ly) {
+      ly = {
+        glow: L.polyline(ll, { color: '#F0A178', weight: 9, opacity: .22, interactive: false, lineCap: 'round', lineJoin: 'round' }).addTo(map),
+        line: L.polyline(ll, { color: '#F0A178', weight: 3, opacity: .95, lineCap: 'round', lineJoin: 'round' }).addTo(map)
+      };
+      ly.line.bindPopup(() => trailPopupHtml(tr), { maxWidth: 264, minWidth: 220, autoPanPadding: [10, 10] });
+      ly.line.on('popupopen', e => wireTrailPopup(e.popup, tr));
+      trailLayers.set(tr.t, ly);
+    } else { ly.glow.setLatLngs(ll); ly.line.setLatLngs(ll); }
+  }
+  function removeTrail(tr) {
+    if (isLive(tr)) setRec(false);
+    trails = trails.filter(x => x !== tr);
+    const ly = trailLayers.get(tr.t); if (ly) { ly.glow.remove(); ly.line.remove(); trailLayers.delete(tr.t); }
+    map.closePopup(); saveTrails(true); toast('Trail deleted');
+  }
+  function trailPoint(fix) {                          // called on every GPS fix while recording
+    if (!rec || !fix || fix.acc > TRAIL_MAX_ACC) return;
+    const now = Date.now();
+    let tr = trails[trails.length - 1];
+    const lastPt = tr && tr.pts.length ? tr.pts[tr.pts.length - 1] : null;
+    if (!tr || tr.end != null || (lastPt && now - lastPt[2] > TRAIL_GAP_MS)) {   // long gap (phone slept) - start a fresh trail rather than draw a straight line across it
+      if (tr && tr.end == null) tr.end = lastPt ? lastPt[2] : now;
+      tr = { t: now, end: null, pts: [] }; trails.push(tr);
+    }
+    const prev = tr.pts.length ? tr.pts[tr.pts.length - 1] : null;
+    if (prev && distBearing({ lat: prev[0], lng: prev[1] }, fix).d < TRAIL_MIN_STEP) return;   // standing still - GPS jitter
+    tr.pts.push([+fix.lat.toFixed(6), +fix.lng.toFixed(6), now]);
+    if (tr.pts.length > TRAIL_MAX_PTS) tr.pts.shift();
+    drawTrail(tr); saveTrails(false); setStatus();
+  }
+  async function requestWake() {
+    try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
+  }
+  function releaseWake() { try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch (e) {} }
+  function setRec(on, quiet) {
+    rec = on; lsSet(LS_REC, on ? '1' : '0');
+    $('trail').classList.toggle('rec', on);
+    if (on) {
+      startWatch(); requestWake();
+      if (fresh()) trailPoint(me);
+      if (!quiet) toast('Slime trail on - keep the screen on while you walk');
+    } else {
+      const tr = trails[trails.length - 1];
+      if (tr && tr.end == null) {
+        if (tr.pts.length < 2) { trails.pop(); const ly = trailLayers.get(tr.t); if (ly) { ly.glow.remove(); ly.line.remove(); trailLayers.delete(tr.t); } }
+        else tr.end = tr.pts[tr.pts.length - 1][2];
+      }
+      saveTrails(true); releaseWake();
+      if (!quiet) toast('Slime trail off' + (tr && tr.pts.length > 1 ? ' - ' + fmtDist(trailLen(tr)) : ''));
+    }
+    setStatus();
+  }
+
   /* ---------- GPS ---------- */
   function setStatus() {
     const el = $('status');
+    const live = rec && trails.length && trails[trails.length - 1].end == null ? trails[trails.length - 1] : null;
+    const pre = rec ? 'Rec' + (live ? ' ' + fmtDist(trailLen(live)) : '') + ' - ' : '';
     if (!me) {
-      el.textContent = blocked ? 'Location unavailable — allow it in Settings' : 'Waiting for GPS…';
-      el.className = 'pill ' + (blocked ? 'bad' : 'wait');
+      el.textContent = pre + (blocked ? 'Location off - allow it in settings' : 'GPS - searching');
+      el.className = 'app-meta ' + (blocked ? 'bad' : 'wait');
       return;
     }
     const stale = Date.now() - lastFixAt > 30000;
-    el.textContent = (stale ? 'GPS stale · last fix ' : 'GPS ') + '±' + fmtAcc(me.acc);
-    el.className = 'pill ' + (stale ? 'wait' : me.acc <= 15 ? 'good' : me.acc <= 40 ? 'ok' : 'bad');
+    el.textContent = pre + (stale ? 'GPS stale - last ' : 'GPS ') + '±' + fmtAcc(me.acc);
+    el.className = 'app-meta ' + (stale ? 'wait' : me.acc <= 15 ? 'good' : me.acc <= 40 ? '' : 'bad');
   }
   function firstFix() {
     const pts = spots.map(s => [s.lat, s.lng]);
@@ -345,6 +493,7 @@
     if (first) { meAcc.addTo(map); meDot.addTo(map); }
     meDot.setLatLng(ll); meAcc.setLatLng(ll).setRadius(Math.max(me.acc, 1));
     if (first) firstFix(); else if (follow) map.panTo(ll, { animate: true, duration: .5 });
+    trailPoint(me);
     setStatus(); updateDistances();
     if (cur) { const r = cur.el.querySelector('.rel'); if (r) r.innerHTML = ' &middot; <b>' + relText(cur.s) + '</b>'; }
   }
@@ -363,74 +512,95 @@
     const btn = $('tag');
     let fix = fresh() ? me : null;
     if (!fix) {
-      btn.disabled = true; btn.textContent = 'Getting GPS fix…';
+      btn.disabled = true; btn.textContent = 'Getting GPS fix';
       try { fix = await getFix(); }
-      catch (e) { toast(e && e.code === 1 ? 'Location is blocked — allow it in your browser settings' : 'No GPS fix yet — try again in a moment'); }
+      catch (e) { toast(e && e.code === 1 ? 'Location is blocked - allow it in your browser settings' : 'No GPS fix yet - try again in a moment'); }
       btn.disabled = false; btn.textContent = TAG_LABEL;
       if (!fix) return;
     }
-    const s = { t: Date.now(), lat: fix.lat, lng: fix.lng, acc: Math.round(fix.acc || 0), name: 'Spot ' + (spots.length + 1) };
+    const s = { t: Date.now(), lat: fix.lat, lng: fix.lng, acc: Math.round(fix.acc || 0), name: 'spot ' + (spots.length + 1) };
     spots.push(s);
     addMarker(s);
     saveState();
     if (navigator.vibrate) navigator.vibrate(30);
     focusSpot(s);
-    toast('Tagged ' + s.name + ' (±' + fmtAcc(s.acc) + ')');
+    toast('Tagged ' + s.name + ' - ±' + fmtAcc(s.acc));
   }
 
-  /* ---------- list drawer ---------- */
-  const subText = s => (me ? relText(s) + ' &middot; ' : '') + esc(fmtTime(s.t));
+  /* ---------- saved overlay ---------- */
+  const metaHtml = s => '<span class="rel">' + (me ? esc(relText(s)) : '') + '</span><span class="when">' + esc(fmtTime(s.t)) + '</span>';
   function renderList() {
     const ul = $('list');
     if (!spots.length) {
-      ul.innerHTML = '<li class="empty">No spots yet. Stand where you want to come back to and tap <b>Tag this spot</b>.</li>';
-      return;
+      ul.innerHTML = '<li class="sheet-row empty">no spots yet - stand where you want to come back to and tap tag my location</li>';
+    } else {
+      const rows = spots.map(s => ({ s, r: me ? distBearing(me, s) : null }));
+      rows.sort((a, b) => (a.r && b.r) ? a.r.d - b.r.d : b.s.t - a.s.t);   // nearest first, else newest first
+      ul.innerHTML = rows.map(({ s }) =>
+        '<li class="sheet-row" data-t="' + s.t + '"><div class="meta">' + metaHtml(s) + '</div><div class="nm">' + labelText(s) + '</div></li>').join('');
     }
-    const rows = spots.map(s => ({ s, r: me ? distBearing(me, s) : null }));
-    rows.sort((a, b) => (a.r && b.r) ? a.r.d - b.r.d : b.s.t - a.s.t);   // nearest first, else newest first
-    ul.innerHTML = rows.map(({ s }) =>
-      '<li data-t="' + s.t + '"><div class="nm">' + labelText(s) + '</div><div class="sub">' + subText(s) + '</div></li>').join('');
+    const tl = $('trailList'), has = trails.length > 0;
+    $('trailsHead').hidden = !has; tl.hidden = !has;
+    if (has) tl.innerHTML = trails.slice().reverse().map(tr =>
+      '<li class="sheet-row" data-tr="' + tr.t + '"><div class="meta"><span>' + fmtDist(trailLen(tr)) + ' &middot; ' + fmtDur(trailEnd(tr) - tr.t) + '</span><span class="when">' + esc(fmtTime(tr.t)) + '</span></div><div class="nm">slime trail' + (isLive(tr) ? ' - recording' : '') + '</div></li>').join('');
   }
   function updateDistances() {
-    if ($('drawer').hidden) return;
+    if ($('overlay').hidden) return;
     $('list').querySelectorAll('li[data-t]').forEach(li => {
       const s = spots.find(x => x.t === Number(li.getAttribute('data-t')));
-      if (s) li.querySelector('.sub').innerHTML = subText(s);
+      if (s) li.querySelector('.meta').innerHTML = metaHtml(s);
     });
   }
-  function toGPX(list) {
+  function openOverlay() { renderList(); $('overlay').hidden = false; $('spots').classList.add('active'); }
+  function closeOverlay() { $('overlay').hidden = true; $('spots').classList.remove('active'); }
+  function toGPX() {
     const x = v => String(v).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]);
+    const iso = t => new Date(t).toISOString();
     return '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<gpx version="1.1" creator="Forest Spots" xmlns="http://www.topografix.com/GPX/1/1">\n' +
-      list.map(s => '  <wpt lat="' + s.lat.toFixed(6) + '" lon="' + s.lng.toFixed(6) + '">\n' +
-        '    <time>' + new Date(s.t).toISOString() + '</time>\n' +
-        '    <name>' + x(s.name || 'Spot') + '</name>\n' +
+      spots.map(s => '  <wpt lat="' + s.lat.toFixed(6) + '" lon="' + s.lng.toFixed(6) + '">\n' +
+        '    <time>' + iso(s.t) + '</time>\n' +
+        '    <name>' + x(s.name || 'spot') + '</name>\n' +
         '    <desc>GPS accuracy ±' + Math.round(s.acc || 0) + ' m</desc>\n' +
-        '  </wpt>').join('\n') +
+        '  </wpt>').concat(
+      trails.filter(tr => tr.pts.length > 1).map(tr => '  <trk>\n    <name>slime trail ' + x(fmtTime(tr.t)) + '</name>\n    <trkseg>\n' +
+        tr.pts.map(p => '      <trkpt lat="' + p[0] + '" lon="' + p[1] + '"><time>' + iso(p[2]) + '</time></trkpt>').join('\n') +
+        '\n    </trkseg>\n  </trk>')).join('\n') +
       '\n</gpx>\n';
   }
 
   /* ---------- wiring ---------- */
   $('tag').addEventListener('click', tag);
   $('locate').addEventListener('click', () => {
-    follow = true; $('locate').classList.add('on');
+    follow = true; $('locate').classList.add('active');
     if (me) map.setView([me.lat, me.lng], Math.max(map.getZoom(), 17));
-    else { toast('Waiting for GPS…'); startWatch(); }
+    else { toast('Waiting for GPS'); startWatch(); }
   });
-  map.on('dragstart', () => { follow = false; $('locate').classList.remove('on'); });
+  $('trail').addEventListener('click', () => setRec(!rec));
+  $('layers').addEventListener('click', () => setLabels(!map.hasLayer(labels)));
+  map.on('dragstart', () => { follow = false; $('locate').classList.remove('active'); });
   map.on('zoomend', updateLabelVis);
-  $('spots').addEventListener('click', () => {
-    const d = $('drawer');
-    if (d.hidden) { renderList(); d.hidden = false; } else d.hidden = true;
-  });
-  $('close').addEventListener('click', () => { $('drawer').hidden = true; });
+  $('spots').addEventListener('click', () => { if ($('overlay').hidden) openOverlay(); else closeOverlay(); });
+  $('close').addEventListener('click', closeOverlay);
+  $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeOverlay(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('overlay').hidden) closeOverlay(); });
   $('list').addEventListener('click', e => {
     const li = e.target.closest('li[data-t]');
     if (!li) return;
     const s = spots.find(x => x.t === Number(li.getAttribute('data-t')));
     if (!s) return;
-    $('drawer').hidden = true;
+    closeOverlay();
     focusSpot(s);
+  });
+  $('trailList').addEventListener('click', e => {
+    const li = e.target.closest('li[data-tr]');
+    if (!li) return;
+    const tr = trails.find(x => x.t === Number(li.getAttribute('data-tr')));
+    if (!tr) return;
+    closeOverlay();
+    follow = false; $('locate').classList.remove('active');
+    const ly = trailLayers.get(tr.t);
+    if (ly) { map.fitBounds(ly.line.getBounds(), { padding: [40, 40], maxZoom: 17 }); ly.line.openPopup(); }
   });
   $('share').addEventListener('click', async () => {
     if (!spots.length) { toast('Nothing to share yet'); return; }
@@ -439,11 +609,11 @@
       if (navigator.share) { await navigator.share({ title: 'Forest Spots', text: spots.length + ' saved spot' + (spots.length === 1 ? '' : 's'), url }); return; }
       if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(url); toast('Link copied'); return; }
       prompt('Copy this link:', url);
-    } catch (e) { if (!e || e.name !== 'AbortError') toast('Couldn’t share'); }
+    } catch (e) { if (!e || e.name !== 'AbortError') toast('Could not share'); }
   });
   $('gpx').addEventListener('click', async () => {
-    if (!spots.length) { toast('Nothing to export yet'); return; }
-    const xml = toGPX(spots), name = 'forest-spots-' + new Date().toISOString().slice(0, 10) + '.gpx';
+    if (!spots.length && !trails.length) { toast('Nothing to export yet'); return; }
+    const xml = toGPX(), name = 'forest-spots-' + new Date().toISOString().slice(0, 10) + '.gpx';
     try {
       const file = new File([xml], name, { type: 'application/gpx+xml' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Forest Spots' }); return; }
@@ -453,18 +623,25 @@
       a.href = URL.createObjectURL(new Blob([xml], { type: 'application/gpx+xml' }));
       a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    } catch (e) { toast('Couldn’t export'); }
+    } catch (e) { toast('Could not export'); }
   });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') startWatch(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { startWatch(); if (rec) requestWake(); }
+    else saveTrails(true);
+  });
+  window.addEventListener('pagehide', () => saveTrails(true));
 
   /* ---------- boot ---------- */
   const added = loadState();
   spots.forEach(addMarker);
+  trails.forEach(drawTrail);
   saveState();
   if (spots.length) map.fitBounds(L.latLngBounds(spots.map(s => [s.lat, s.lng])), { padding: [40, 40], maxZoom: 17 });
   updateLabelVis();
   if (added) toast('Added ' + added + ' spot' + (added === 1 ? '' : 's') + ' from link');
+  if (rec) setRec(true, true);
   startWatch();
+  setStatus();
   setInterval(setStatus, 5000);
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});

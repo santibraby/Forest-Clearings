@@ -1,37 +1,51 @@
 # Forest Spots
 
-A one-button map for tagging places in the woods you want to come back to.
-Satellite view of Saratoga Springs / Greenfield Center, a **Tag this spot** button, done.
+A one-button map for the woods. Tap **Tag my location** and the phone's GPS position is saved as a pin -
+a patch of boletes, a sunny clearing worth sketching in, anything you want to find again.
+Satellite view of Saratoga Springs / Greenfield Center. Styled to the FRC tool design language (`frc-tool-style`).
 
-## Put it on GitHub Pages
-
-1. Create a new **public** repository (for example `forest-spots`).
-2. Upload `index.html`, `sw.js` and this `README.md` (Add file → Upload files → Commit changes).
-3. Settings → Pages → Build and deployment → Source: **Deploy from a branch** → Branch `main`, folder `/ (root)` → Save.
-4. After a minute or so the app is live at `https://<your-username>.github.io/forest-spots/`.
-   Open it on your phone, allow location, and use **Add to Home Screen** for a full-screen app.
+Live at https://santibraby.github.io/Forest-Clearings/ (capital F and C - the address is case-sensitive).
 
 ## Using it
 
-- The pill at the top shows GPS quality. When it's green (under ~50 ft) you'll get a good tag.
-- **Tag this spot** saves your position instantly and opens a popup where you can name it.
-- Tap any pin (or the list button, bottom-left) to see distance and direction from where you are,
-  get walking directions, **Move to me** (re-tag the pin to your current position), or delete it.
-- The blue dot is you. The crosshair button re-centres the map on you and follows as you walk.
-- The layers button (top-right) turns road names and labels on or off.
+- Open it on your phone, allow location, and add it to your Home Screen.
+- The top-right readout shows GPS accuracy in feet. Peach means a good fix (under ~50 ft); dim means rough;
+  pulsing means it is still searching. Under tree cover, standing still for 15-20 seconds usually tightens it up.
+- **Tag my location** saves where you are standing right now. You never need to find yourself on the map.
+  A popup opens so you can name the spot.
+- Tap any pin to see distance and direction from where you are now, get walking directions, **Move to me**
+  (re-tag it to your current position), or delete it.
+- The vivid dot is you. The rail on the right, top to bottom:
+  - list - saved spots (nearest first) and slime trails, plus Share link and Export GPX
+  - crosshair - center on me and follow as you walk
+  - route - **slime trail**: tap to start recording your path as a line on the map, tap again to stop
+  - layers - roads and place names on or off
+
+## Slime trail
+
+While a trail is recording, the route icon pulses and the readout shows `REC` with the distance so far.
+The trail is saved as you go, survives a reload, and the app keeps the screen awake for you - the phone
+cannot record GPS with the screen locked, so leave the app open while you walk. If the phone does sleep
+for more than ten minutes, the next stretch starts as a new trail instead of a straight line across the gap.
+Tap a trail line for its length and duration, or to delete it.
 
 ## Don't lose your spots
 
-Spots are stored in the browser on your phone, and they're also written into the page's link
-(the `#s=...` part). **Share link** in the list drawer sends that link anywhere — text it to
-yourself or a friend and every spot comes back when the link is opened. **Export GPX** hands the
-spots to AllTrails, Gaia GPS, Google Earth or anything else that reads GPX.
+Spots are stored in the browser on your phone, and they are also written into the page's link
+(the `#s=...` part). **Share link** sends that link anywhere - text it to yourself or a friend and every
+spot comes back when the link is opened. **Export GPX** hands spots and trails to AllTrails, Gaia GPS,
+Google Earth or anything else that reads GPX.
 
 Note: on iPhone, a Home Screen copy of the app keeps its own saved spots separately from Safari.
 If you tag spots in one and want them in the other, use Share link.
 
 ## Offline in the forest
 
-Open the app once on Wi-Fi and zoom around the area you'll be walking. Every map tile you look at
-is cached on the phone (that's what `sw.js` does), so the map still shows with no signal.
-GPS itself doesn't need a signal.
+Open the app once on Wi-Fi and zoom around the area you will be walking. Every map tile you look at
+is cached on the phone (that is what `sw.js` does), so the map still shows with no signal.
+GPS itself does not need a signal.
+
+## Files
+
+- `index.html` - the whole app
+- `sw.js` - offline cache for the app and map tiles
