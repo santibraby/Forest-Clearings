@@ -2,7 +2,7 @@
    Keeps the app itself and every map tile you've already looked at available offline,
    so the map still shows in the woods with no signal. (GPS works without signal anyway.) */
 
-const SHELL = 'shell-v2';                      // bump when the app files change
+const SHELL = 'shell-v3';                      // bump when the app files change
 const TILES = 'tiles-v1';                      // never bump - it holds the imagery you've cached for the woods
 const MAX_TILES = 5000;                        // ~100-150 MB of imagery, oldest dropped first
 const SHELL_URLS = [
@@ -10,7 +10,7 @@ const SHELL_URLS = [
   './index.html',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
-  'https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap'
+  'https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&family=Inter:wght@700&display=swap'
 ];
 const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
